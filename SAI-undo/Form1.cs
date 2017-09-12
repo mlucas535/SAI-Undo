@@ -50,7 +50,7 @@ namespace SAI_undo
 
         private string findVersionNumber() //Fix loop to not run infinitely in case incorrect file is loaded
         {
-            byte[] versionSeries = { 0x61, 0x69, 0x20, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E, 0x20, 0x20, 0x3D, 0x20 };
+            byte[] versionSeries = { 0x61, 0x69, 0x20, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E, 0x20, 0x20, 0x3D, 0x20 }; //represents the text "ai Version  = "
             string verNumber = "";
 
             try
@@ -68,12 +68,12 @@ namespace SAI_undo
                             return "Error";
                         }
 
-                        if (beginLetter == 0x53)
+                        if (beginLetter == 0x53) //Checks to see if the read byte is the character 'S'
                         {
                             byte[] versionCompare = { };
                             try
                             {
-                                versionCompare = reader.ReadBytes(14);
+                                versionCompare = reader.ReadBytes(14); //reads the next 14 bytes to see if they match the version number string
                             }
                             catch (EndOfStreamException e)
                             {
@@ -83,8 +83,8 @@ namespace SAI_undo
 
                             if (compareVersionText(versionSeries, versionCompare))
                             {
-                                byte[] versionNumberArray = reader.ReadBytes(5);
-                                verNumber = System.Text.Encoding.UTF8.GetString(versionNumberArray);
+                                byte[] versionNumberArray = reader.ReadBytes(5); //read the next 5 bytes, which are the 5 characters representing the version
+                                verNumber = System.Text.Encoding.UTF8.GetString(versionNumberArray); //translate those bytes to a string
                                 versionTextBox.Text = verNumber;
                                 return verNumber;
                             }
@@ -98,13 +98,26 @@ namespace SAI_undo
                 MessageBox.Show("Error accessing file.\nYou may have to re-run this program as an administrator.", "Error");
                 return "Error";
             }
+            catch (IOException e)
+            {
+                MessageBox.Show("Error accessing file.\nMake sure SAI is not currently running on your computer and try again.", "Error");
+                return "Error";
+            }
         }
 
         private int findUndoOffset()
         {
             byte[] undoInstruction = new byte[4];
 
-            if (versionNumber.Equals("1.1.0")) {
+            /*The following if/else statement stores the proper assembly instructions that come
+             * before the location where the undo limit is stored. Basically, if we can find these
+             * instructions in the exe, the following 4 bytes in memory represent the undo limit.
+             * I found the proper instruction by using Cheat Engine with SAI, and found the location
+             * that keeps track of the current number of undos. I then looked at the assembly instructions
+             * to find the hexadecimal representation, then searched that in the .exe using HxD to find the
+             * following instructions
+             * */
+            if (versionNumber.Equals("1.1.0")) { //The comparison instruction is different for this version, so 1.1.0 must be handled differently
                 undoInstruction[0] = 0x74;
                 undoInstruction[1] = 0x3C;
                 undoInstruction[2] = 0xBB;
@@ -134,12 +147,12 @@ namespace SAI_undo
                             return -1;
                         }
 
-                        if (beginByte == undoInstruction[0])
+                        if (beginByte == undoInstruction[0]) //check for the first byte in the target instruction
                         {
                             byte[] instructionCompare = { };
                             try
                             {
-                                if (versionNumber.Equals("1.1.0"))
+                                if (versionNumber.Equals("1.1.0")) //read the next x bytes, depending on version loaded
                                 {
                                     instructionCompare = reader.ReadBytes(2);
                                 }
@@ -155,7 +168,7 @@ namespace SAI_undo
                                 return -1;
                             }
 
-                            if (versionNumber.Equals("1.1.0"))
+                            if (versionNumber.Equals("1.1.0")) //adjust offset accordingly depending on version
                             {
                                 offset += 2;
                             }
@@ -164,12 +177,12 @@ namespace SAI_undo
                                 offset += 3;
                             }
 
-                            if (compareInstructions(undoInstruction, instructionCompare))
+                            if (compareInstructions(undoInstruction, instructionCompare)) //check to see if we've found the correct location for the instructions
                             {
                                 offset++;
-                                string sampleString = reader.ReadInt32().ToString();
+                                string sampleString = reader.ReadInt32().ToString(); //read the next integer (4 bytes), which represents the undo limit
                                 currentUndoTextBox.Text = sampleString;
-                                return offset;
+                                return offset; //return the offset so we know the location of the undo limit in the .exe
                             }
                         }
                         offset++;
@@ -181,9 +194,14 @@ namespace SAI_undo
                 currentUndoTextBox.Text = "Error";
                 return -1;
             }
+            catch(IOException e)
+            {
+                currentUndoTextBox.Text = "Error";
+                return -1;
+            }
         }
 
-        private bool compareInstructions(byte[] goalInstruction, byte[] readInstruction)
+        private bool compareInstructions(byte[] goalInstruction, byte[] readInstruction) //see if the two parameters are the same instruction
         {
             int length;
             if (versionNumber.Equals("1.1.0"))
@@ -224,7 +242,7 @@ namespace SAI_undo
                 int newUndoNumber = 0;
                 try
                 {
-                    newUndoNumber = Int32.Parse(newUndoTextBox.Text);
+                    newUndoNumber = Int32.Parse(newUndoTextBox.Text); //get user input
                 }catch(FormatException ex)
                 {
                     MessageBox.Show("Please enter a valid number", "Error");
@@ -245,8 +263,8 @@ namespace SAI_undo
                 using (BinaryWriter writer = new BinaryWriter(new FileStream(filePath, FileMode.Open, FileAccess.Write)))
                 {
                     int updatedUndos = Int32.Parse(newUndoTextBox.Text);
-                    writer.Seek(offset, 0);
-                    writer.Write(updatedUndos);
+                    writer.Seek(offset, 0); //place the BinaryWriter cursor at the proper offset that was found earlier to change the undo limit
+                    writer.Write(updatedUndos);//update the undo limit bytes
                 }
             }
             catch(Exception e)
