@@ -48,7 +48,7 @@ namespace SAI_undo
             return true;
         }
 
-        private string findVersionNumber() //Fix loop to not run infinitely in case incorrect file is loaded
+        private string findVersionNumber()
         {
             byte[] versionSeries = { 0x61, 0x69, 0x20, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E, 0x20, 0x20, 0x3D, 0x20 }; //represents the text "ai Version  = "
             string verNumber = "";
